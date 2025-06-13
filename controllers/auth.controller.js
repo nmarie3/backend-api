@@ -1,20 +1,8 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const filePath = path.resolve(__dirname, '../models/user.model.js');
-console.log('Looking for model at:', filePath);
-console.log('Exists?', fs.existsSync(filePath));
-
-
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs"; //generates randomized strings to hash our passwords
 import jwt from "jsonwebtoken";
-import { JWT_EXPIRES_IN, JWT_SECRET } from "../config/env";
-import User from '../models/user.model.js'
+import User from '../models/user.model.js';
+import { JWT_SECRET, JWT_EXPIRES_IN } from '../config/env.js'
 
 export const signUp = async (req, res, next) => {
     //implement sign-up logic here
@@ -26,7 +14,7 @@ export const signUp = async (req, res, next) => {
         const {name, email, password} = req.body; //req.body is an obj containing data from client (POST request)
 
         //check if user already exists
-        const existingUser = await User.findOne({email}) //checks if email is same as teh one user is trying to create account with.
+        const existingUser = await User.findOne({email}) //checks if email is same as the one user is trying to create account with.
         if(existingUser) {
             const error = new Error("User already exists");
             error.statusCode = 409; //already exists
@@ -44,7 +32,7 @@ export const signUp = async (req, res, next) => {
         await session.commitTransaction(); //if everything goes right we commit to creating the user.
         session.endSession();
 
-        res.status(201).json({ //we can return this "response" after a successful session
+        res.status(201).json({ //we can return this "response" after a successful session -- 201 means created
             success: true,
             message: "User created successfully",
             data: {
@@ -61,10 +49,43 @@ export const signUp = async (req, res, next) => {
     } 
 }
 
-// export const signIn = async (req, res, next) => {
-//     //implement sign-in logic here
+export const signIn = async (req, res, next) => {
+    //implement sign-in logic here
+    try {
+        const {email, password} = req.body //no need to destructure name here since we're signing in.
+        const user = await User.findOne({email}); //check if user exists
 
-// }
+        if(!user) {
+            const error = new Error("User not found");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        const isPasswordValid = await bcrypt.compare(password, user.password); //if email exists then check the password by comparing what they entered by the pw stored in database.
+
+        if(!isPasswordValid) {
+            const error = new Error("Invalid password");
+            error.statusCode = 401;
+            throw error;
+        }
+
+        //if it matches make a token
+        const token = jwt.sign({userId: user._id}, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
+
+        //then we return
+        res.status(200).json({ //200 means success
+            success: true,
+            message: "User sign in successful",
+            data: {
+                token,
+                user,
+            }
+        });
+    }catch (error) {
+        next(error);
+    }
+
+}
 
 
 // export const signOut = async (req, res, next) => {
