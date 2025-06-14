@@ -32,5 +32,3 @@ const authorize = async (req, res, next) => {
 }
 
 export default authorize;
-
-//restrict users from spamming -- bot protection -- keeps app fast and secure
